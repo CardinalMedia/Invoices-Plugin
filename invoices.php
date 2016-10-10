@@ -37,9 +37,11 @@
 
       $data = $this->wp_create_gift_subscription($_POST);
 
-      // $json = json_encode( $data, JSON_FORCE_OBJECT);
-
       print_r($data);
+
+      $json = json_encode( $data, JSON_FORCE_OBJECT);
+
+
 
       return $json;
 
@@ -65,6 +67,11 @@
             <div class="hc-input">
               <label>Company Name (optional)</label>
               <input type="text" class="" name="hcCompanyName" placeholder="Widgets, Ltd.">
+            </div>
+
+            <div class="hc-input">
+              <label>Email</label>
+              <input type="text" class="" name="hcEmail" placeholder="janedoe@company.com">
             </div>
 
             <div class="hc-input">
@@ -145,13 +152,14 @@
 
       \Stripe\Stripe::setApiKey(Stripe_Private_Key);
 
-      // "receipt_email" => $order['sender']['senderEmail'],
+      // "receipt_email" => $order['hcEmail']
 
       try {
         $charge = \Stripe\Charge::create(array(
-          "amount" => $data['hcPrice'],
+          "amount" => $order['hcPrice'],
           "currency" => "usd",
-          "source" => $order['stripeToken'], // obtained with Stripe.js
+          "source" => $order['stripeToken'],
+          "receipt_email" => $order['hcEmail'],
           "description" => 'TEST DESC'
         ));
       } catch (\Stripe\Error\ApiConnection $e) {
@@ -159,15 +167,11 @@
 
         $res = json_decode($e->jsonBody);
 
-        print_r($res);
-
         return $res;
 
       } catch (\Stripe\Error\Api $e) {
 
         $res = json_decode($e->jsonBody);
-
-        print_r($res);
 
         return $res;
 
@@ -175,16 +179,12 @@
 
         $res = json_decode($e->jsonBody);
 
-        print_r($res);
-
         return $res;
 
       } catch (\Stripe\Error\Card $e) {
 
         $res = json_decode($e->jsonBody);
 
-        print_r($res);
-        
         return $res;
 
       }

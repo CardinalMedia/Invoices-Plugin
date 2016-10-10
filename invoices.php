@@ -137,7 +137,7 @@
     }
 
     function invoice_flush_rewrites() {
-	// call your CPT registration function here (it should also be hooked into 'init')
+
       $this->invoice_content_types();
       flush_rewrite_rules();
 
@@ -202,6 +202,12 @@
 
         $response->set_status( 201 );
 
+        return $response;
+
+      } else {
+
+        $response = new WP_REST_Response();
+        $response->set_status( 500 );
         return $response;
 
       }

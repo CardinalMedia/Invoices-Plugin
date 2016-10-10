@@ -83,13 +83,12 @@
         params.stripeToken = response.id;
         delete params.hcCcNum;
 
-        var data = params;
-        data.action = hcData.post_action;
-
         var request = $.ajax({
           url: hcData.post_url,
           type: "POST",
-          data: data,
+          contentType : 'application/json',
+          data: JSON.stringify(params),
+          dataType: 'json',
           success: function(msg){
             console.log(msg);
             $('#yield').empty();

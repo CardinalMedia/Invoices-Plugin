@@ -8,10 +8,10 @@
 	require_once  __DIR__ . '/lib/vendor/Stripe/init.php';
 
 
-	class Invoices_Api {
+	class HC_Invoices_Api {
 
 
-		function __construct(){
+    function __construct(){
 
 			add_action( 'init', array($this, 'invoice_content_types'), 0 );
 
@@ -21,17 +21,117 @@
 
       add_action( 'wp_enqueue_scripts', array( $this, 'invoice_frontend_scripts' ) );
 
+      // add_filter('single_template', array( $this, 'invoice_page_template')  );
+
+      add_filter( 'the_content', array( $this, 'invoice_page_template' ) );
+
+      add_action( 'wp_ajax_invoice_pay_action', array( $this, 'invoice_pay_action_callback' ) );
+      add_action( 'wp_ajax_nopriv_invoice_pay_action', array( $this, 'invoice_pay_action_callback' ) );
+
       register_deactivation_hook( __FILE__, 'flush_rewrite_rules' );
       register_activation_hook( __FILE__, array( $this, 'invoice_flush_rewrites' ) );
 
-		}
+    }
+
+    function invoice_pay_action_callback(){
+
+      $data = $this->wp_create_gift_subscription($_POST);
+
+      // $json = json_encode( $data, JSON_FORCE_OBJECT);
+
+      print_r($data);
+
+      return $json;
+
+      wp_die();
+    }
+
+    function get_form_template($price, $invoice_ID){
+
+      $stripe_price = floatval($price) * 100;
+
+      ob_start();
+      ?>
+
+        <div class="hc-invoice-form">
+
+          <form id="hc-invoice-form">
+
+            <div class="hc-input">
+              <label>Name on Card</label>
+              <input type="text" class="" name="hcCardName" placeholder="Jane Doe">
+            </div>
+
+            <div class="hc-input">
+              <label>Company Name (optional)</label>
+              <input type="text" class="" name="hcCompanyName" placeholder="Widgets, Ltd.">
+            </div>
+
+            <div class="hc-input">
+              <label>Credit Card Number</label>
+              <input type="text" class="js-cc-num" name="hcCcNum" placeholder="**** **** **** ****">
+            </div>
+
+            <div class="hc-input half">
+              <label>Expiration</lable>
+              <input type="text" class="js-cc-exp" name="hcExpire" placeholder="mm / yy">
+            </div>
+
+            <div class="hc-input half">
+              <label>CVC</label>
+              <input type="text" class="js-cc-cvc" name="hcCvc" placeholder="***">
+            </div>
+
+            <input type="hidden" name="hcPrice" value="<?php echo $stripe_price; ?>">
+
+            <input type="hidden" name="hcInvoiceId" value="<?php echo $invoice_ID; ?>">
+
+            <button type="submit" class="hc-btn-invoice">Pay $<?php echo $price; ?></button>
+
+          </form>
+
+        </div>
+
+      <?php
+
+      $form = ob_get_contents();
+      ob_end_clean();
+
+      return $form;
+
+    }
+
+    function invoice_page_template($content) {
+      global $wp_query, $post;
+
+      if ($post->post_type == 'hc_simple_invoice'){
+
+        $price = get_post_meta($post->ID, '_hc_invoice_details_order_price', true);
+
+        $content .= $this->get_form_template($price, $post->ID);
+
+        return $content;
+
+      }
+      return $content;
+    }
 
     function invoice_frontend_scripts(){
 
       wp_enqueue_style( 'invoice/style', plugin_dir_url( __FILE__ ) . 'assets/css/invoices.css', false, null );
 
       wp_enqueue_script( 'stripe', 'https://js.stripe.com/v2/', [], null, true);
-      wp_enqueue_script( 'invoice/script', plugin_dir_url( __FILE__ ) . 'assets/js/invoices.js', ['jQuery', 'stripe'], null, true);
+
+      wp_register_script( 'invoice/script', plugin_dir_url( __FILE__ ) . 'assets/js/invoices.js', [], null, true);
+
+      $post_url = admin_url( 'admin-ajax.php');
+      wp_localize_script('invoice/script', 'hcData', array(
+        'public_key' => Stripe_Public_Key,
+        'post_url' => $post_url,
+        'post_action' => 'invoice_pay_action'
+      ) );
+
+      wp_enqueue_script( 'invoice/script' );
 
     }
 
@@ -41,11 +141,67 @@
       flush_rewrite_rules();
     }
 
+    function wp_create_gift_subscription($order){
+
+      \Stripe\Stripe::setApiKey(Stripe_Private_Key);
+
+      // "receipt_email" => $order['sender']['senderEmail'],
+
+      try {
+        $charge = \Stripe\Charge::create(array(
+          "amount" => $data['hcPrice'],
+          "currency" => "usd",
+          "source" => $order['stripeToken'], // obtained with Stripe.js
+          "description" => 'TEST DESC'
+        ));
+      } catch (\Stripe\Error\ApiConnection $e) {
+        // Network problem, perhaps try again.
+
+        $res = json_decode($e->jsonBody);
+
+        print_r($res);
+
+        return $res;
+
+      } catch (\Stripe\Error\Api $e) {
+
+        $res = json_decode($e->jsonBody);
+
+        print_r($res);
+
+        return $res;
+
+      }  catch (\Stripe\Error\InvalidRequest $e) {
+
+        $res = json_decode($e->jsonBody);
+
+        print_r($res);
+
+        return $res;
+
+      } catch (\Stripe\Error\Card $e) {
+
+        $res = json_decode($e->jsonBody);
+
+        print_r($res);
+        
+        return $res;
+
+      }
+
+      update_post_meta($order['hcInvoiceId'], '_hc_invoice_details_full_name', $order['hcCardName'] );
+      update_post_meta($order['hcInvoiceId'], '_hc_invoice_details_email', $charge['id'] );
+      update_post_meta($order['hcInvoiceId'], '_hc_invoice_details_stripe_charge_id', $charge['id'] );
+
+      return $charge;
+
+    }
+
 		function create_gift_subscription(WP_REST_Request $request){
 
   		$order = $request->get_json_params();
 
-  		\Stripe\Stripe::setApiKey('');
+  		\Stripe\Stripe::setApiKey(Stripe_Private_Key);
 
   		try {
         $charge = \Stripe\Charge::create(array(
@@ -215,7 +371,7 @@
 
   		$charge = $request->get_json_params();
 
-  		\Stripe\Stripe::setApiKey('');
+  		\Stripe\Stripe::setApiKey('10pw6zvK6zodE9hjsqdwYWjrksH1Xez8');
 
 
       $orders = null;
@@ -271,7 +427,7 @@ WHERE meta_key = '_sub_sender_stripe_charge_id' AND  meta_value = '$charge_id' L
 		function invoice_content_types(){
 
   		register_post_type(
-				'simple_invoice',
+				'hc_simple_invoice',
 				array(
 					'public'				=> true,
 					'show_ui'				=> true,
@@ -306,12 +462,12 @@ WHERE meta_key = '_sub_sender_stripe_charge_id' AND  meta_value = '$charge_id' L
 
 		function invoice_fields(){
 
-      $prefix = '_invoice_details_';
+      $prefix = '_hc_invoice_details_';
 
       $order_fields = new_cmb2_box( array(
 				'id'            => 'invoice_order_metaboxes',
 				'title'         => __( 'Order Info', 'cmb2' ),
-				'object_types'  => array( 'simple_invoice' ),
+				'object_types'  => array( 'hc_simple_invoice' ),
 				'context'       => 'normal',
 				'priority'      => 'high',
 				'show_names'    => true,
@@ -334,7 +490,7 @@ WHERE meta_key = '_sub_sender_stripe_charge_id' AND  meta_value = '$charge_id' L
 			$invoice_fields = new_cmb2_box( array(
 				'id'            => 'invoice_metaboxes',
 				'title'         => __( 'Payment Info', 'cmb2' ),
-				'object_types'  => array( 'simple_invoice' ),
+				'object_types'  => array( 'hc_simple_invoice' ),
 				'context'       => 'normal',
 				'priority'      => 'high',
 				'show_names'    => true,
@@ -379,4 +535,4 @@ WHERE meta_key = '_sub_sender_stripe_charge_id' AND  meta_value = '$charge_id' L
 
   }
 
-  $os_sub_api = new Invoices_Api();
+  $os_sub_api = new HC_Invoices_Api();

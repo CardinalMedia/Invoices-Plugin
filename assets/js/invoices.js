@@ -45,84 +45,68 @@
 
 (function($){
 
-  $('#invoices-form').on('submit', function(evt){
+  console.log(hcData);
+
+  $('.js-cc-num').payment('formatCardNumber');
+  $('.js-cc-exp').payment('formatCardExpiry');
+  $('.js-cc-cvc').payment('formatCardCVC');
+
+  Stripe.setPublishableKey(hcData.public_key);
+
+  $('#hc-invoice-form').on('submit', function(evt){
 
 		evt.preventDefault();
 
 		var formError = false;
 		var params = $(this).getParams();
 
-		if(stage === 1){
-			targetData = order.recipient;
-			order.data.recipient = params;
-			$.each(params, function(key, value){
-				$.each(targetData, function(index, item){
-					if(item.fieldName === key){
-						item.value = value;
-					}
-				});
-			});
+    $('#checkout-btn').text('Loading...');
+    $('#checkout-btn').prop("disabled",true);
 
-			if(!params.error){
-				stage = 2;
-				inputsHtml = GG.renderFields(order.sender);
+    var expireData = $.payment.cardExpiryVal(params.hcExpire);
 
-				$('.js-cc-num').payment('formatCardNumber');
-				$('.js-cc-exp').payment('formatCardExpiry');
-				$('.js-cc-cvc').payment('formatCardCVC');
+    Stripe.card.createToken({
+      name: params.hcCardName,
+      number: params.hcCcNum,
+      cvc: params.hcCvc,
+      exp_month: expireData.month,
+      exp_year: expireData.year
+    }, function(status, response){
+      if (response.error) {
 
-			}
-			return;
-		}
+        $('.js-errors').addClass('error');
+        $('.js-errors').text(response.error.message);
 
-		if(stage === 2){
+      } else {
 
-			$('#checkout-btn').text('Loading...');
-			$('#checkout-btn').prop("disabled",true);
+        var token = response.id;
+        params.stripeToken = response.id;
+        delete params.hcCcNum;
 
-			var expireData = $.payment.cardExpiryVal(params.creditCardExpire);
+        var data = params;
+        data.action = hcData.post_action;
 
-			stripe.card.createToken({
-				name: params.senderFullName,
-				number: params.creditCardNumber,
-				cvc: params.creditCardCVC,
-				exp_month: expireData.month,
-				exp_year: expireData.year
-			}, function(status, response){
-				if (response.error) { // Problem!
+        var request = $.ajax({
+          url: hcData.post_url,
+          type: "POST",
+          data: data,
+          success: function(msg){
+            console.log(msg);
+            $('#yield').empty();
+            $('#yield').append('<h4>Thank You</h4><p>Your order has been placed.</p>');
+            $('#checkout-btn').remove();
+          },
+          error: function(XMLHttpRequest, textStatus, errorThrow){
+            console.log(XMLHttpRequest);
+            var error = JSON.parse(XMLHttpRequest.responseText);
+            $('.js-errors').empty();
+            $('.js-errors').addClass('error');
+            $('.js-errors').text(error.error.message);
+          }
+        });
+      }
+    });
 
-					$('.js-errors').addClass('error');
-					$('.js-errors').text(response.error.message);
-
-			  } else {
-
-          var token = response.id;
-          params.stripeToken = response.id;
-          delete params.creditCardNumber;
-
-          order.data.sender = params;
-
-          var request = $.ajax({
-          	url: '/wp-json/invoices/v1/pay',
-          	type: "POST",
-          	contentType : 'application/json',
-          	data: JSON.stringify(order.data),
-          	dataType: 'json',
-          	success: function(msg){
-          		$('#yield').empty();
-          		$('#yield').append('<h4>Thank You</h4><p>Your order has been placed.</p>');
-          		$('#checkout-btn').remove();
-          	},
-          	error: function(XMLHttpRequest, textStatus, errorThrow){
-          		var error = JSON.parse(XMLHttpRequest.responseText);
-          		$('.js-errors').empty();
-          		$('.js-errors').addClass('error');
-          		$('.js-errors').text(error.error.message);
-          	}
-          });
-				}
-			});
-		}
 	});
 
 })(jQuery);

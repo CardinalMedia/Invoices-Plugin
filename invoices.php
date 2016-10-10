@@ -214,7 +214,7 @@
 
   		$charge = $request->get_json_params();
 
-  		\Stripe\Stripe::setApiKey('10pw6zvK6zodE9hjsqdwYWjrksH1Xez8');
+  		\Stripe\Stripe::setApiKey(Stripe_Private_Key);
 
 
       $orders = null;
@@ -235,12 +235,11 @@
   		}
 
       $orders = $wpdb->get_results("SELECT * FROM $wpdb->postmeta
-WHERE meta_key = '_sub_sender_stripe_charge_id' AND  meta_value = '$charge_id' LIMIT 1", ARRAY_A);
+WHERE meta_key = '_hc_invoice_submitted_stripe_charge_id' AND  meta_value = '$charge_id' LIMIT 1", ARRAY_A);
 
       if( $orders ){
-        update_post_meta( $orders[0]['post_id'], '_sub_sender_stripe_charge_status', $status);
+        update_post_meta( $orders[0]['post_id'], '_hc_invoice_submitted_stripe_charge_status', $status);
       }
-
 
   		$response = new WP_REST_Response(
     		array( '100' => '100')

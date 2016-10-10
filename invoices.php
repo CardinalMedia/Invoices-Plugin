@@ -57,7 +57,7 @@
 
             <div class="hc-input">
               <label>Name on Card</label>
-              <input type="text" class="" name="hcCardName" placeholder="Jane Doe">
+              <input type="text" class="" name="hcCardName" placeholder="Jane Doe" required>
             </div>
 
             <div class="hc-input">
@@ -67,22 +67,22 @@
 
             <div class="hc-input">
               <label>Email</label>
-              <input type="text" class="" name="hcEmail" placeholder="janedoe@company.com">
+              <input type="text" class="" name="hcEmail" placeholder="janedoe@company.com" required>
             </div>
 
             <div class="hc-input">
               <label>Credit Card Number</label>
-              <input type="text" class="js-cc-num" name="hcCcNum" placeholder="**** **** **** ****">
+              <input type="text" class="js-cc-num" name="hcCcNum" placeholder="**** **** **** ****" required>
             </div>
 
             <div class="hc-input half">
               <label>Expiration</lable>
-              <input type="text" class="js-cc-exp" name="hcExpire" placeholder="mm / yy">
+              <input type="text" class="js-cc-exp" name="hcExpire" placeholder="mm / yy" required>
             </div>
 
             <div class="hc-input half">
               <label>CVC</label>
-              <input type="text" class="js-cc-cvc" name="hcCvc" placeholder="***">
+              <input type="text" class="js-cc-cvc" name="hcCvc" placeholder="***" required>
             </div>
 
             <input type="hidden" name="hcPrice" value="<?php echo $stripe_price; ?>">

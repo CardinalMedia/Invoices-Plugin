@@ -90,7 +90,7 @@
           data: JSON.stringify(params),
           dataType: 'json',
           success: function(msg){
-            console.log(msg);
+
             $('#yield').empty();
             $('#yield').append('<h4>Thank You</h4><p>Your order has been placed.</p>');
             $('#checkout-btn').remove();
